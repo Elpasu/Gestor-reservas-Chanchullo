@@ -14,14 +14,14 @@
     form{display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end}
     label{font-size:13px; color:#333}
     input, select{width:100%; padding:10px 12px; border-radius:8px; border:1px solid #ddd; font-size:14px}
-    button{grid-column:1 / -1; padding:10px 14px; border-radius:8px; border:0; background:var(--accent); color:white; font-weight:600}
+    button{grid-column:1 / -1; padding:10px 14px; border-radius:8px; border:0; background:var(--accent); color:white; font-weight:600; cursor:pointer}
     .status{margin-top:14px}
-    .row{display:flex; gap:12px}
     .card{padding:12px; border-radius:8px; background:#fafafa; border:1px solid #eee}
-    table{width:100%; border-collapse:collapse}
+    table{width:100%; border-collapse:collapse; margin-top:10px}
     th, td{padding:8px; text-align:left; border-bottom:1px solid #eee}
     .small{font-size:13px;color:#666}
-    .controls{display:flex; gap:8px; margin-top:12px}
+    .controls{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+    .delBtn{background:#e53e3e;color:white;border:0;padding:6px 10px;border-radius:6px;cursor:pointer}
   </style>
 </head>
 <body>
@@ -71,10 +71,8 @@
 
       <div class="card">
         <h3 style="margin:0 0 6px">Administración</h3>
-        <div class="controls">
-          <button id="btnVer" style="background:#444">Ver reservas</button>
-        </div>
-        <p class="small" style="margin-top:8px">ver reservas y eliminar si alguien cancela.</p>
+        <div class="controls" id="verReservasBtns"></div>
+        <p class="small" style="margin-top:8px">Podés eliminar reservas si alguien cancela.</p>
       </div>
     </div>
 
@@ -82,7 +80,7 @@
 
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js'
-      import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, query, orderBy, getDocs, runTransaction } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js'
+      import { getFirestore, doc, setDoc, getDoc, collection, getDocs, runTransaction, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js'
 
       const firebaseConfig = {
         apiKey: "AIzaSyAPPt23MiqeGWdpJhuQtGxfKYlgQRE1hVA",
@@ -94,114 +92,124 @@
         measurementId: "G-CNF5PLZQTR"
       };
 
-      const app = initializeApp(firebaseConfig)
-      const db = getFirestore(app)
-      const metaDocRef = doc(db, 'meta', 'funciones')
-      const reservasCol = collection(db, 'reservas')
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const metaDocRef = doc(db, 'meta', 'funciones');
+      const reservasCol = collection(db, 'reservas');
 
       const funciones = [
         '2025-11-06',
         '2025-11-13',
         '2025-11-20',
         '2025-11-27'
-      ]
+      ];
 
-      const statusEl = document.getElementById('status')
-      const cuposList = document.getElementById('cuposList')
-      const reservasTable = document.getElementById('reservasTable')
+      const statusEl = document.getElementById('status');
+      const cuposList = document.getElementById('cuposList');
+      const reservasTable = document.getElementById('reservasTable');
+      const verReservasBtns = document.getElementById('verReservasBtns');
 
+      // inicializa doc meta
       async function ensureMeta(){
-        const snap = await getDoc(metaDocRef)
+        const snap = await getDoc(metaDocRef);
         if(!snap.exists()){
-          const init = {}
-          funciones.forEach(f=> init[f] = 50)
-          await setDoc(metaDocRef, {cupos:init, updated: new Date().toISOString()})
+          const init = {};
+          funciones.forEach(f=> init[f] = 50);
+          await setDoc(metaDocRef, {cupos:init, updated: new Date().toISOString()});
         }
       }
 
       async function renderCupos(){
-        const snap = await getDoc(metaDocRef)
-        if(!snap.exists()){ cuposList.innerText = 'Sin datos. Inicializá los cupos.'; return }
-        const data = snap.data().cupos || {}
-        let html = '<table>'
-        html += '<tr><th>Función</th><th>Cupos restantes</th></tr>'
+        const snap = await getDoc(metaDocRef);
+        if(!snap.exists()){ cuposList.innerText = 'Sin datos.'; return }
+        const data = snap.data().cupos || {};
+        let html = '<table><tr><th>Función</th><th>Cupos restantes</th></tr>';
         funciones.forEach(f=>{
-          html += `<tr><td>${formatFecha(f)}</td><td><strong>${data[f] ?? 0}</strong></td></tr>`
-        })
-        html += '</table>'
-        cuposList.innerHTML = html
+          html += `<tr><td>${formatFecha(f)}</td><td><strong>${data[f] ?? 0}</strong></td></tr>`;
+        });
+        html += '</table>';
+        cuposList.innerHTML = html;
       }
 
       function formatFecha(f){
-        const d = new Date(f)
-        const opts = { weekday:'short', day:'numeric', month:'numeric', year:'numeric'}
-        return d.toLocaleDateString('es-AR', opts)
+        const d = new Date(f);
+        const opts = { weekday:'short', day:'numeric', month:'numeric', year:'numeric'};
+        return d.toLocaleDateString('es-AR', opts);
       }
 
       async function hacerReserva({fecha, nombre, telefono, cantidad}){
-        cantidad = Number(cantidad)
+        cantidad = Number(cantidad);
         try{
           await runTransaction(db, async (t)=>{
-            const metaSnap = await t.get(metaDocRef)
-            if(!metaSnap.exists()) throw new Error('Cupos no inicializados')
-            const cupos = metaSnap.data().cupos || {}
-            const disponible = Number(cupos[fecha] ?? 0)
-            if(disponible < cantidad) throw new Error('No hay suficientes entradas disponibles')
-            cupos[fecha] = disponible - cantidad
-            t.update(metaDocRef, {cupos: cupos, updated: new Date().toISOString()})
-            const newResRef = doc(collection(db,'reservas'))
-            t.set(newResRef, {fecha, nombre, telefono, cantidad, created: new Date().toISOString()})
-          })
-          return {ok:true}
+            const metaSnap = await t.get(metaDocRef);
+            const cupos = metaSnap.data().cupos || {};
+            const disponible = Number(cupos[fecha] ?? 0);
+            if(disponible < cantidad) throw new Error('No hay suficientes entradas');
+            cupos[fecha] = disponible - cantidad;
+            t.update(metaDocRef, {cupos, updated: new Date().toISOString()});
+            const newResRef = doc(collection(db,'reservas'));
+            t.set(newResRef, {fecha, nombre, telefono, cantidad, created: new Date().toISOString()});
+          });
+          return {ok:true};
         }catch(e){
-          return {ok:false, error:e.message}
+          return {ok:false, error:e.message};
         }
       }
 
       document.getElementById('reservaForm').addEventListener('submit', async (ev)=>{
-        ev.preventDefault()
-        statusEl.innerText = 'Procesando...'
-        const fecha = document.getElementById('fecha').value
-        const cantidad = document.getElementById('cantidad').value
-        const nombre = document.getElementById('nombre').value.trim()
-        const telefono = document.getElementById('telefono').value.trim()
-
-        const res = await hacerReserva({fecha, nombre, telefono, cantidad})
+        ev.preventDefault();
+        statusEl.innerText = 'Procesando...';
+        const fecha = document.getElementById('fecha').value;
+        const cantidad = document.getElementById('cantidad').value;
+        const nombre = document.getElementById('nombre').value.trim();
+        const telefono = document.getElementById('telefono').value.trim();
+        const res = await hacerReserva({fecha, nombre, telefono, cantidad});
         if(res.ok){
-          statusEl.innerHTML = `<span style="color:green">Reserva creada: ${nombre} — ${cantidad} entrada(s) para ${formatFecha(fecha)}</span>`
-          document.getElementById('reservaForm').reset()
-          renderCupos()
+          statusEl.innerHTML = `<span style="color:green">Reserva creada: ${nombre} — ${cantidad} entrada(s) para ${formatFecha(fecha)}</span>`;
+          document.getElementById('reservaForm').reset();
+          renderCupos();
         }else{
-          statusEl.innerHTML = `<span style="color:crimson">Error: ${res.error}</span>`
+          statusEl.innerHTML = `<span style="color:crimson">Error: ${res.error}</span>`;
         }
-      })
+      });
 
-      // === NUEVO: Ver y eliminar reservas ===
-      document.getElementById('btnVer').addEventListener('click', async ()=>{
-        reservasTable.innerHTML = '<p class="small">Cargando reservas...</p>';
-        const snap = await getDocs(collection(db, 'reservas'));
-        if (snap.empty) {
-          reservasTable.innerHTML = '<p class="small">No hay reservas aún.</p>';
+      // ===== NUEVO: crear botones por función =====
+      funciones.forEach(f=>{
+        const btn = document.createElement('button');
+        btn.textContent = formatFecha(f);
+        btn.style.background = '#444';
+        btn.style.color = 'white';
+        btn.style.padding = '8px 12px';
+        btn.style.borderRadius = '6px';
+        btn.addEventListener('click', ()=> verReservasPorFecha(f));
+        verReservasBtns.appendChild(btn);
+      });
+
+      async function verReservasPorFecha(fecha){
+        reservasTable.innerHTML = `<p class="small">Cargando reservas para ${formatFecha(fecha)}...</p>`;
+        const snap = await getDocs(reservasCol);
+        const docs = snap.docs.filter(d => d.data().fecha === fecha);
+        if (docs.length === 0){
+          reservasTable.innerHTML = `<p class="small">No hay reservas para ${formatFecha(fecha)}.</p>`;
           return;
         }
-
-        let html = '<table><tr><th>Fecha</th><th>Nombre</th><th>Teléfono</th><th>Cantidad</th><th>Creado</th><th>Acciones</th></tr>';
-        snap.docs.sort((a,b)=> a.data().created < b.data().created ? 1 : -1).forEach(d=>{
+        let html = `<h3>Reservas para ${formatFecha(fecha)}</h3>`;
+        html += '<table><tr><th>Nombre</th><th>Teléfono</th><th>Cantidad</th><th>Creado</th><th>Acción</th></tr>';
+        docs.forEach(d=>{
           const r = d.data();
           html += `<tr>
-            <td>${formatFecha(r.fecha)}</td>
             <td>${r.nombre}</td>
             <td>${r.telefono}</td>
             <td>${r.cantidad}</td>
             <td class="small">${new Date(r.created).toLocaleString()}</td>
-            <td><button data-id="${d.id}" data-fecha="${r.fecha}" data-cantidad="${r.cantidad}" class="delBtn" style="background:#e53e3e;color:white;border:0;padding:6px 10px;border-radius:6px">Eliminar</button></td>
+            <td><button class="delBtn" data-id="${d.id}" data-fecha="${r.fecha}" data-cantidad="${r.cantidad}">Eliminar</button></td>
           </tr>`;
         });
         html += '</table>';
         reservasTable.innerHTML = html;
 
         document.querySelectorAll('.delBtn').forEach(btn=>{
-          btn.addEventListener('click', async (ev)=>{
+          btn.addEventListener('click', async ev=>{
             const id = ev.target.dataset.id;
             const fecha = ev.target.dataset.fecha;
             const cantidad = Number(ev.target.dataset.cantidad);
@@ -218,20 +226,20 @@
             ev.target.closest('tr').remove();
           });
         });
-      });
+      }
 
       async function subscribeCupos(){
         onSnapshot(metaDocRef, (snap)=>{
-          if(!snap.exists()) return
-          renderCupos()
-        })
+          if(!snap.exists()) return;
+          renderCupos();
+        });
       }
 
       (async ()=>{
-        try{ await ensureMeta(); await renderCupos(); subscribeCupos() }catch(e){ cuposList.innerText = 'Error al conectar con Firebase. Revisá configuración.' }
-      })()
+        try{ await ensureMeta(); await renderCupos(); subscribeCupos(); }
+        catch(e){ cuposList.innerText = 'Error al conectar con Firebase.' }
+      })();
     </script>
   </div>
 </body>
 </html>
-
