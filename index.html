@@ -82,25 +82,25 @@
 
     <div id="reservasTable" style="margin-top:18px"></div>
 
-    <!-- FIREBASE SDKs - colocar la configuración abajo -->
-    <!-- Instrucciones: crear proyecto Firebase, activar Cloud Firestore. Copiar config y reemplazar en firebaseConfig -->
+>
     <script type="module">
       // -----------------------
       // CONFIGURAR FIREBASE AQUI
-      // -----------------------
-      // 1) Creá un proyecto en https://console.firebase.google.com
-      // 2) Activá Firestore (modo de prueba para desarrollo) o Realtime DB si preferís
-      // 3) En "Agregar app" obtené la configuración y pegala en firebaseConfig
+
 
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js'
       import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, query, orderBy, getDocs, runTransaction } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js'
 
       const firebaseConfig = {
-        apiKey: "REEMPLAZAR_APIKEY",
-        authDomain: "REEMPLAZAR_AUTHDOMAIN",
-        projectId: "REEMPLAZAR_PROJECTID",
-        // storageBucket, messagingSenderId, appId (opcionales)
+        apiKey: "AIzaSyAPPt23MiqeGWdpJhuQtGxfKYlgQRE1hVA",
+        authDomain: "gestor-reservas-1f040.firebaseapp.com",
+        projectId: "gestor-reservas-1f040",
+        storageBucket: "gestor-reservas-1f040.firebasestorage.app",
+        messagingSenderId: "951777953877",
+        appId: "1:951777953877:web:eee0053474a22c9310acdc",
+        measurementId: "G-CNF5PLZQTR"
       };
+
 
       const app = initializeApp(firebaseConfig)
       const db = getFirestore(app)
