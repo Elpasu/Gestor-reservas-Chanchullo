@@ -131,11 +131,14 @@
         cuposList.innerHTML = html;
       }
 
-      function formatFecha(f){
-        const d = new Date(f);
-        const opts = { weekday:'short', day:'numeric', month:'numeric', year:'numeric'};
+      function formatFecha(fechaStr){
+        // Evita desplazamiento por zona horaria (toma la fecha como local)
+        const [year, month, day] = fechaStr.split('-').map(Number);
+        const d = new Date(year, month - 1, day); // mes empieza en 0
+        const opts = { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' };
         return d.toLocaleDateString('es-AR', opts);
       }
+
 
       async function hacerReserva({fecha, nombre, telefono, cantidad}){
         cantidad = Number(cantidad);
